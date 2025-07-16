@@ -3,7 +3,9 @@
 #include <OneWire.h>
 #include <floatToString.h>
 
-#define consigne 30
+#define consigne 50
+#define nb_moyenne  10
+#define WIFI
 
 const char* ssid = "HomeSweetHome";
 const char* pass = "maisonbleuegrenouilleverte";
@@ -12,9 +14,13 @@ int DS18S20_Pin_1 = 4; //DS18S20 Signal pin on digital 4
 int DS18S20_Pin_2 = 16; //DS18S20 Signal pin on digital 16
 int DS18S20_Pin_3 = 17; //DS18S20 Signal pin on digital 17
 int commande_pin = 23;     // GPIO de commande de la pompe
-int commande_led = 23;     // GPIO de commande de la LED
+int commande_led = 22;     // GPIO de commande de la LED
 int inter = 21;      // GPIO de commande forcée du moteur
 
+int no_iter = 0;
+float t1[nb_moyenne];
+float t2[nb_moyenne];
+float t3[nb_moyenne];
 
 OneWire ds1(DS18S20_Pin_1);
 OneWire ds2(DS18S20_Pin_2);
@@ -69,6 +75,25 @@ float getTemp(OneWire ds) {
   return TemperatureSum;
 
 }
+
+
+float moyenne_tab(float tab[]) {
+
+  float cumul = 0;
+  for (int i = 0; i < nb_moyenne - 1 ; i = i + 1)
+  {
+    cumul = cumul + tab[i];
+  }
+  return cumul / nb_moyenne;
+}
+
+String FloatToStr(float anumber)
+{
+  char str[10] = "";
+  floatToString(anumber,str, sizeof(str), 2);
+  return str;
+}
+
 void setup() {
   Serial.begin(115200);
   pinMode(commande_pin, OUTPUT);
@@ -76,97 +101,108 @@ void setup() {
   pinMode(commande_led, OUTPUT);
   digitalWrite(commande_led, LOW);
   pinMode(inter, INPUT);
-  /*
 
-    WiFi.begin(ssid, pass);
+#ifdef WIFI
 
-    Serial.print("connecting to wifi...");
-    while (WiFi.status() != WL_CONNECTED) {
-      Serial.print(".");
-      delay(1000);
-    }
-    Serial.println(" connected!");
 
-    Serial.print("connecting to host...");
-    while (!client.connect("192.168.1.60", 1883)) {
-      Serial.print(".");
-      delay(1000);
-    }
-    Serial.println(" connected!");
+  WiFi.begin(ssid, pass);
 
-    // initialize mqtt client
-    mqtt.begin(client);
+  Serial.print("connecting to wifi...");
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(1000);
+  }
+  Serial.println(" connected!");
 
-    Serial.print("connecting to mqtt broker...");
-    while (!mqtt.connect("192.168.1.60", "", "")) {
-      Serial.print(".");
-      delay(1000);
-    }
+  Serial.print("connecting to host...");
+  while (!client.connect("192.168.1.60", 1883)) {
+    Serial.print(".");
+    delay(1000);
+  }
+  Serial.println(" connected!");
 
-    Serial.println(" connected!");
+  // initialize mqtt client
+  mqtt.begin(client);
 
-    // subscribe callback which is called when every packet has come
-    mqtt.subscribe([](const String & topic, const String & payload, const size_t size) {
-      Serial.println("mqtt received: " + topic + " - " + payload);
-    });
+  Serial.print("connecting to mqtt broker...");
+  while (!mqtt.connect("192.168.1.60", "", "")) {
+    Serial.print(".");
+    delay(1000);
+  }
 
-    // subscribe topic and callback which is called when /hello has come
-    mqtt.subscribe("/hello", [](const String & payload, const size_t size) {
-      Serial.print("/hello ");
-      Serial.println(payload);
-    });
-  */
+  Serial.println(" connected!");
+
+  // subscribe callback which is called when every packet has come
+  mqtt.subscribe([](const String & topic, const String & payload, const size_t size) {
+    Serial.println("mqtt received: " + topic + " - " + payload);
+  });
+
+  // subscribe topic and callback which is called when /hello has come
+  mqtt.subscribe("/hello", [](const String & payload, const size_t size) {
+    Serial.print("/hello ");
+    Serial.println(payload);
+  });
+#endif
 }
 
 void loop() {
   //mqtt.update();  // should be called
   static uint32_t prev_ms = millis();
   char message1[10];
-char message2[10];
-char message3[10];
+  char message2[10];
+  char message3[10];
+
+
   // publish message
 
-  if (millis() > prev_ms + 5000) {
+  if (millis() > prev_ms + 500) {
 
     prev_ms = millis();
 
     float temp1 = getTemp(ds1);
-    floatToString(temp1, message1, sizeof(message1), 2);
-    //Serial.print("Température chauffe eau : ");
-    //Serial.println(message1);
-    //Serial.print("connecting to mqtt broker...");
-    /*   while (!mqtt.connect("192.168.1.60", "", "")) {
-         Serial.print(".");
-         delay(1000);
-       }
-    */
-    // mqtt.publish("/homeassistant/temperature/t1", message);
     float temp2 = getTemp(ds2);
-    floatToString(temp2, message2, sizeof(message2), 2);
-    //Serial.print("Température air : ");
-    //Serial.println(message2);
-    //  mqtt.publish("/homeassistant/temperature/t2", message);
     float temp3 = getTemp(ds3);
-    floatToString(temp3, message3, sizeof(message3), 2);
-    //Serial.print("Température piscine");
-    //Serial.println(message3);
-    // mqtt.publish("/homeassistant/temperature/t3", message);
-    Serial.print( message1 );
-    Serial.print( ",");
-    Serial.print(message2);
-    Serial.print(",");
-    Serial.println( message3 );
-    if (temp1 > consigne) {
-      digitalWrite(commande_pin, HIGH);
-      delay(3 *  1000 );
-      digitalWrite(commande_pin, LOW);
-    }
-    if (digitalRead(inter))
+    t1[no_iter] = temp1;
+    t2[no_iter] = temp2;
+    t3[no_iter] = temp3;
+    if (no_iter >= nb_moyenne - 1)
     {
-      digitalWrite(commande_pin, HIGH);
-      delay( 1000 );
-      digitalWrite(commande_pin, LOW);
+      floatToString(temp1, message1, sizeof(message1), 2);
+      floatToString(temp2, message2, sizeof(message2), 2);    //Serial.print("Température chauffe eau : ");
+      floatToString(temp3, message3, sizeof(message3), 2);   //Serial.println(message1);
+#ifdef WIFI
+      //Serial.print("connecting to mqtt broker...");
+      //while (!mqtt.connect("192.168.1.60", "", "")) {
+      //  Serial.print(".");
+      //  delay(1000);
+     // }
+
+      mqtt.publish("/homeassistant/temperature/t1", FloatToStr(moyenne_tab(t1)));
+      mqtt.publish("/homeassistant/temperature/t2", FloatToStr(moyenne_tab(t2)));
+      mqtt.publish("/homeassistant/temperature/t3", FloatToStr(moyenne_tab(t3)));
+
+#endif
+
+      Serial.print( message1 );
+      Serial.print( ",");
+      Serial.print(message2);
+      Serial.print(",");
+      Serial.println( message3 );
+      if (temp1 > consigne) {
+        digitalWrite(commande_pin, HIGH);
+        digitalWrite(commande_led, HIGH);
+        delay(3 * 60 * 1000 );
+        digitalWrite(commande_pin, LOW);
+        digitalWrite(commande_led, HIGH);
+      }
+      if (digitalRead(inter))
+      {
+        digitalWrite(commande_pin, HIGH);
+        delay( 1000 );
+        digitalWrite(commande_pin, LOW);
+      }
     }
+    no_iter = (no_iter + 1) % nb_moyenne;
   }
 
 }
