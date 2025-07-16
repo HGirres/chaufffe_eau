@@ -90,7 +90,7 @@ float moyenne_tab(float tab[]) {
 String FloatToStr(float anumber)
 {
   char str[10] = "";
-  floatToString(anumber,str, sizeof(str), 2);
+  floatToString(anumber, str, sizeof(str), 2);
   return str;
 }
 
@@ -175,7 +175,7 @@ void loop() {
       //while (!mqtt.connect("192.168.1.60", "", "")) {
       //  Serial.print(".");
       //  delay(1000);
-     // }
+      // }
 
       mqtt.publish("/homeassistant/temperature/t1", FloatToStr(moyenne_tab(t1)));
       mqtt.publish("/homeassistant/temperature/t2", FloatToStr(moyenne_tab(t2)));
@@ -193,14 +193,16 @@ void loop() {
         digitalWrite(commande_led, HIGH);
         delay(3 * 60 * 1000 );
         digitalWrite(commande_pin, LOW);
-        digitalWrite(commande_led, HIGH);
+        digitalWrite(commande_led, LOW);
       }
-      if (digitalRead(inter))
-      {
+      /*
+        if (digitalRead(inter))
+        {
         digitalWrite(commande_pin, HIGH);
         delay( 1000 );
         digitalWrite(commande_pin, LOW);
-      }
+        }
+      */
     }
     no_iter = (no_iter + 1) % nb_moyenne;
   }
