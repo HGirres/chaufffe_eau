@@ -6,6 +6,7 @@
 #define consigne 50
 #define nb_moyenne  10
 #define WIFI
+#define DEBUG
 
 const char* ssid = "HomeSweetHome";
 const char* pass = "maisonbleuegrenouilleverte";
@@ -100,7 +101,7 @@ void setup() {
   digitalWrite(commande_pin, LOW);
   pinMode(commande_led, OUTPUT);
   digitalWrite(commande_led, LOW);
-  pinMode(inter, INPUT);
+  pinMode(inter, INPUT_PULLUP);
 
 #ifdef WIFI
 
@@ -188,6 +189,24 @@ void loop() {
       Serial.print(message2);
       Serial.print(",");
       Serial.println( message3 );
+#ifdef DEBUG
+      if ( digitalRead(inter) == LOW )
+      {
+        digitalWrite(commande_pin, HIGH);
+        digitalWrite(commande_led, HIGH);
+      }
+      else
+      {
+        digitalWrite(commande_pin, LOW);
+        digitalWrite(commande_led, LOW);
+      }
+      Serial.print("Commande_PIN : ");
+      Serial.println(digitalRead(commande_pin));
+      Serial.print("inter : ");
+      Serial.println(digitalRead(inter));
+
+#endif
+#ifndef DEBUG
       if (temp1 > consigne) {
         digitalWrite(commande_pin, HIGH);
         digitalWrite(commande_led, HIGH);
@@ -195,6 +214,7 @@ void loop() {
         digitalWrite(commande_pin, LOW);
         digitalWrite(commande_led, LOW);
       }
+#endif
       /*
         if (digitalRead(inter))
         {
